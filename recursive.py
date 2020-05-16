@@ -87,6 +87,7 @@ class Recursive_(nn.Module):
         op_mask = length_mask & (~open_mask)
         op_lengths = op_mask.sum(dim=0)
 
+        # 1. Remove all `(` from the sequence.
         op_input = torch.full_like(input[:op_lengths.max()],
                                    self.padding_idx)
         for i in range(batch_size):
@@ -135,28 +136,3 @@ class Recursive_(nn.Module):
 
         return stack, stack_ptr
 
-if __name__ == "__main__":
-    tree = Recursive(LSTMOp, 5, 4, padding_idx=4)
-    batch_result = tree.forward(torch.tensor([
-           [2, 4, 4, 4, 4, 4, 4, 4, 4, 4],
-           [0, 0, 3, 3, 1, 0, 2, 2, 1, 1],
-           [0, 2, 0, 3, 0, 2, 3, 1, 1, 1]
-        ], dtype=torch.long).t())
-    assert(torch.allclose(
-        batch_result[0],
-        tree.embedding(torch.Tensor([[2]]).long().t())[0]))
-
-    embs = tree.embedding(torch.Tensor(([3, 3, 2, 2],)).long().t())
-    result = tree.op(tree.op(embs[0], embs[1]),
-                     tree.op(embs[2], embs[3]))
-    assert(torch.allclose(batch_result[1], result))
-
-    embs = tree.embedding(torch.Tensor([[2, 3, 2, 3 ]]).long().t())
-    result = tree.op(embs[0],
-                     tree.op(embs[1],
-                             tree.op(embs[2], embs[3])))
-    assert(torch.allclose(batch_result[2], result))
-
-    batch_result.sum().backward()
-
-    tree = torch.save(tree, 'tree.pt')

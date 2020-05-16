@@ -92,6 +92,7 @@ class Recursive_(nn.Module):
         for i in range(batch_size):
             op_input[:op_lengths[i], i] = input[op_mask[:, i], i]
         close_mask = op_input == self.paren_close
+        token_mask = (op_input != self.padding_idx) &  (~close_mask)
 
         # Initialise stack
         stack_height = torch.sum(~close_mask, dim=0).max() + 1
@@ -106,17 +107,16 @@ class Recursive_(nn.Module):
         for t in range(input_emb.size(0)):
             stack, stack_ptr = self.step(
                 batch_idx,
-                input_emb[t], close_mask[t],
+                input_emb[t], token_mask[t], close_mask[t],
                 stack, stack_ptr
             )
         return stack[:, 0]
 
     def step(self, batch_idx:torch.Tensor, emb_t:torch.Tensor,
-             is_close:torch.Tensor,
+             is_token: torch.Tensor, is_close:torch.Tensor,
              stack:torch.Tensor, stack_ptr:torch.Tensor):
         stack_ptr_ = stack_ptr
         stack_ptr = stack_ptr_.clone()
-        is_token = ~is_close
 
         # shift
         if is_token.any():

@@ -10,7 +10,8 @@ from tree_rnn import TreeRNN
 import recursive
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='PyTorch PennTreeBank RNN/LSTM Language Model')
+    parser = argparse.ArgumentParser(
+        description='PyTorch PennTreeBank RNN/LSTM Language Model')
     parser.add_argument('--data', type=str, default='data/propositionallogic/',
                         help='location of the data corpus')
     parser.add_argument('--emsize', type=int, default=50,
@@ -92,7 +93,8 @@ class LogicInference(object):
         self.train_set, self.valid_set, self.test_set = [], [], []
         counter = 0
         for i in range(maxn):
-            itrainexample = self._readfile(os.path.join(datapath, "train" + str(i)))
+            itrainexample = self._readfile(
+                os.path.join(datapath, "train" + str(i)))
             for e in itrainexample:
                 counter += 1
                 if counter % 10 == 0:
@@ -102,7 +104,8 @@ class LogicInference(object):
                 # self.train_set = self.train_set + itrainexample
 
         for i in range(13):
-            itestexample = self._readfile(os.path.join(datapath, "test" + str(i)))
+            itestexample = self._readfile(
+                os.path.join(datapath, "test" + str(i)))
             self.test_set.append(itestexample)
 
     def _readfile(self, filepath):
@@ -152,16 +155,7 @@ corpus = LogicInference(maxn=7)
 ###############################################################################
 # Build the model
 ###############################################################################
-###
-# if args.resume:
-#    print('Resuming model ...')
-#    model_load(args.resume)
-#    optimizer.param_groups[0]['lr'] = args.lr
-#    model.dropouti, model.dropouth, model.dropout, args.dropoute = args.dropouti, args.dropouth, args.dropout, args.dropoute
-#    if args.wdrop:
-#        for rnn in model.rnn.cells:
-#            rnn.hh.dropout = args.wdrop
-###
+
 ntokens = len(corpus.num2char) + 1
 nlbls = len(corpus.num2lbl)
 
@@ -181,16 +175,6 @@ class Classifier(nn.Module):
             parens_id=(0, 1),
             dropout=0.
         )
-        # self.tensor_op = nn.Bilinear(nhid // 2, nhid // 2, nhid)
-        # self.linear_op = nn.Linear(nhid, nhid)
-        # self.non_lin = nn.Tanh()
-#        self.mlp = nn.Sequential(
-#            nn.Linear(nhid, nhid),
-#            nn.Tanh(),
-#            nn.Linear(nhid, nhid),
-#            nn.Tanh(),
-#            nn.Linear(nhid, nout),
-#        )
 
         self.mlp = nn.Sequential(
             nn.Dropout(dropout),
@@ -205,25 +189,16 @@ class Classifier(nn.Module):
 
     def forward(self, input):
         batch_size = input.size(1)
-        # last_hidden_old = self.tree_rnn_old(input)
         last_hidden = self.tree_rnn(input)
 
         clause_1 = last_hidden[:batch_size // 2]
         clause_2 = last_hidden[batch_size // 2:]
 
-#        rntn_out = (self.non_lin(
-#                        self.linear_op(torch.cat([clause_1, clause_2], dim=-1))
-#                    ) + self.non_lin(self.tensor_op(clause_1, clause_2)))
-#
-#        output = self.mlp(rntn_out)
 
         output = self.mlp(torch.cat([clause_1, clause_2,
                                      clause_1 * clause_2,
                                      torch.abs(clause_1 - clause_2)], dim=1))
 
-        # output = self.mlp(torch.cat([clause_1, clause_2,
-        #                              clause_1 * clause_2,
-        #                              torch.abs(clause_1 - clause_2)], dim=1))
         return output
 
 
@@ -241,7 +216,6 @@ if __name__ == "__main__":
     model.eval()
     if args.cuda:
         model = model.cuda()
-    ###
     params = list(model.parameters())
     total_params = sum(x.size()[0] * x.size()[1]
                        if len(x.size()) > 1 else x.size()[0]
@@ -357,7 +331,6 @@ if __name__ == "__main__":
         # Ensure the optimizer is optimizing params, which includes both the model's weights as well as the criterion's weight (i.e. Adaptive Softmax)
         optimizer = torch.optim.Adam(params,
                                      lr=args.lr,
-                                     # betas=(0, 0.999),
                                      eps=1e-9,
                                      weight_decay=args.wdecay)
         scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'max', 0.5,

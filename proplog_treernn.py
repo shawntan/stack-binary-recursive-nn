@@ -16,7 +16,7 @@ if __name__ == "__main__":
                         help='location of the data corpus')
     parser.add_argument('--emsize', type=int, default=50,
                         help='size of word embeddings')
-    parser.add_argument('--nhid', type=int, default=100,
+    parser.add_argument('--nhid', type=int, default=200,
                         help='number of hidden units per layer')
     parser.add_argument('--chunk_size', type=int, default=10,
                         help='number of units per chunk')

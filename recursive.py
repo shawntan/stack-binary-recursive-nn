@@ -58,14 +58,14 @@ class Recursive(nn.Module):
 
     def __getstate__(self):
         recurse_ = self.recurse
-        del self.__dict__.recurse
+        del self.__dict__['recurse']
         state = self.__dict__.copy()
         self.__dict__['recurse'] = recurse_
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.__dict__['recurse'] = torch.jit.export(self._recurse)
+        self.__dict__['recurse'] = torch.jit.script(self._recurse)
 
 
 class Recursive_(nn.Module):

@@ -5,6 +5,7 @@ This repository provides an example of Recursive NNs
 limited to binary tree structures.
 It is implemented in PyTorch, and internally uses a stack to process the
 elements of the tree in parallel.
+
 ---
 ### Explanation
 Suppose we had some example, input:

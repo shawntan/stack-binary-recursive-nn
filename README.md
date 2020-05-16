@@ -8,16 +8,15 @@ elements of the tree in parallel.
 
 ---
 ### Explanation
-Suppose we had some example, input:
+Suppose we had some example input:
 ```
 ( ( not a ) ( or d ) )
 ```
-
 we might turn these into the indices,
 ```
 0 0 2 3 1 0 4 5 1 1
 ```
-where, `(` and `)` are `0` and `1` respectively.
+where `(` and `)` are `0` and `1` respectively.
 
 One possible way of processing such a sequence in its tree structure would be
 ```python
@@ -34,19 +33,19 @@ for idx in sent:
             emb = self.embedding.weight[idx]
             stack.append(emb)
 ```
-where `self.op` and  `self.embedding` are modules the recursive operator used to
+`self.op` and  `self.embedding` are modules the recursive operator uses to
 lookup and compose two child representations into its parent representation.
 The naive method would be to process each item in the minibatch as above, and
-concatenate them into a minibatch of root representations. 
+then concatenate them into a minibatch of root representations. 
 
 This method is implemented in `tree_rnn.py`
 
-However, the above approach does not fully utilise the parallelism on GPUs.
+However, the above approach does not fully exploit the parallelism on GPUs.
 Ideally, we should maintain as many stacks as there are instances in a minibatch.
 
 Lets make some observations about the parsing method above:
-1. If `idx == 0` or `(`, nothing happens during that iteration. Since we know that the input trees
-   are binary then the constituents during a reduce operation is always the top two items on the
+1. If `idx == 0` (or `(`), nothing happens during that iteration. Since we know that the input trees
+   are binary, then the constituents during a reduce operation is always the top two items on the
    stack.
    
    We can exploit this by first removing all instances of `(` from the minibatch.

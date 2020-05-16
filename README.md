@@ -1,4 +1,5 @@
 # Stack Binary Recursive Neural Networks 
+
 This repository provides an example of Recursive NNs
 (as in [Socher et. al., 2011](https://nlp.stanford.edu/pubs/SocherLinNgManning_ICML2011.pdf)),
 limited to binary tree structures.

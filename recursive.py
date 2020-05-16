@@ -80,17 +80,22 @@ class Recursive_(nn.Module):
 
     def forward(self, input):
         max_length, batch_size  = input.size()
-
         # Masking business
         length_mask = input != self.padding_idx
         open_mask = input == self.paren_open
-        close_mask = input == self.paren_close
-        token_mask = length_mask & (~open_mask) & (~close_mask)
-        do_nothing = (open_mask | ~length_mask).all(dim=1)
+        # Extract operations only
+        op_mask = length_mask & (~open_mask)
+        op_lengths = op_mask.sum(dim=0)
+
+        op_input = torch.full_like(input[:op_lengths.max()],
+                                   self.padding_idx)
+        for i in range(batch_size):
+            op_input[:op_lengths[i], i] = input[op_mask[:, i], i]
+        close_mask = op_input == self.paren_close
 
         # Initialise stack
-        stack_height = torch.sum(token_mask, dim=0).max() + 1
-        input_emb = self.embedding(input)
+        stack_height = torch.sum(~close_mask, dim=0).max() + 1
+        input_emb = self.embedding(op_input)
 
         batch_idx = torch.arange(batch_size,
                                  dtype=torch.long, device=input.device)
@@ -98,20 +103,20 @@ class Recursive_(nn.Module):
                                 dtype=torch.long, device=input.device)
         stack = torch.zeros(batch_size, stack_height, self.hidden_size,
                             device=input.device)
-        for t in range(max_length):
-            if not do_nothing[t]:
-                stack, stack_ptr = self.step(
-                    batch_idx,
-                    input_emb[t], token_mask[t], close_mask[t],
-                    stack, stack_ptr
-                )
+        for t in range(input_emb.size(0)):
+            stack, stack_ptr = self.step(
+                batch_idx,
+                input_emb[t], close_mask[t],
+                stack, stack_ptr
+            )
         return stack[:, 0]
 
     def step(self, batch_idx:torch.Tensor, emb_t:torch.Tensor,
-             is_token:torch.Tensor, is_close:torch.Tensor,
+             is_close:torch.Tensor,
              stack:torch.Tensor, stack_ptr:torch.Tensor):
         stack_ptr_ = stack_ptr
         stack_ptr = stack_ptr_.clone()
+        is_token = ~is_close
 
         # shift
         if is_token.any():
@@ -134,14 +139,14 @@ if __name__ == "__main__":
     tree = Recursive(LSTMOp, 5, 4, padding_idx=4)
     batch_result = tree.forward(torch.tensor([
            [2, 4, 4, 4, 4, 4, 4, 4, 4, 4],
-           [0, 0, 2, 3, 1, 0, 2, 2, 1, 1],
+           [0, 0, 3, 3, 1, 0, 2, 2, 1, 1],
            [0, 2, 0, 3, 0, 2, 3, 1, 1, 1]
         ], dtype=torch.long).t())
     assert(torch.allclose(
         batch_result[0],
         tree.embedding(torch.Tensor([[2]]).long().t())[0]))
 
-    embs = tree.embedding(torch.Tensor(([2, 3, 2, 2],)).long().t())
+    embs = tree.embedding(torch.Tensor(([3, 3, 2, 2],)).long().t())
     result = tree.op(tree.op(embs[0], embs[1]),
                      tree.op(embs[2], embs[3]))
     assert(torch.allclose(batch_result[1], result))

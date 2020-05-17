@@ -119,6 +119,7 @@ class Recursive_(nn.Module):
         stack_ptr_ = stack_ptr
         stack_ptr = stack_ptr_.clone()
 
+        # 2. Batched shift and reduce operations
         # shift
         if is_token.any():
             stack_ = stack.index_put((batch_idx, stack_ptr_), emb_t)

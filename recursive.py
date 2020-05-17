@@ -108,32 +108,73 @@ class Recursive_(nn.Module):
         for t in range(input_emb.size(0)):
             stack, stack_ptr = self.step(
                 batch_idx,
-                input_emb[t], token_mask[t], close_mask[t],
-                stack, stack_ptr
+                input_emb[t],
+                is_shift=token_mask[t],
+                is_reduce=close_mask[t],
+                stack=stack, stack_ptr=stack_ptr
             )
         return stack[:, 0]
 
     def step(self, batch_idx:torch.Tensor, emb_t:torch.Tensor,
-             is_token: torch.Tensor, is_close:torch.Tensor,
+             is_shift: torch.Tensor, is_reduce:torch.Tensor,
              stack:torch.Tensor, stack_ptr:torch.Tensor):
-        stack_ptr_ = stack_ptr
-        stack_ptr = stack_ptr_.clone()
+        # stack_ptr_ = stack_ptr
+        # stack_ptr = stack_ptr_.clone()
 
         # 2. Batched shift and reduce operations
         # shift
-        if is_token.any():
-            stack_ = stack.index_put((batch_idx, stack_ptr_), emb_t)
-            stack[is_token] = stack_[is_token]
-            stack_ptr[is_token] = (stack_ptr_ + 1)[is_token]
+        if is_shift.any():
+            shift_stack = stack[is_shift]
+            shift_stack_ptr = stack_ptr[is_shift]
+            idx = torch.arange(shift_stack.size(0),
+                               dtype=shift_stack_ptr.dtype,
+                               device=shift_stack_ptr.device)
+            shift_stack[idx, shift_stack_ptr] =  emb_t[is_shift]
+            stack[is_shift] = shift_stack
+            stack_ptr[is_shift] = shift_stack_ptr + 1
 
         # reduce
-        if is_close.any():
-            r_child = stack[batch_idx, stack_ptr_ - 1]
-            l_child = stack[batch_idx, stack_ptr_ - 2]
+        if is_reduce.any():
+            reduce_stack = stack[is_reduce]
+            reduce_stack_ptr = stack_ptr[is_reduce]
+            idx = torch.arange(reduce_stack.size(0),
+                               dtype=reduce_stack_ptr.dtype,
+                               device=reduce_stack_ptr.device)
+            r_child = reduce_stack[idx, reduce_stack_ptr - 1]
+            l_child = reduce_stack[idx, reduce_stack_ptr - 2]
             parent = self.op(l_child, r_child)
-            stack_ = stack.index_put((batch_idx, stack_ptr_ - 2), parent)
-            stack[is_close] = stack_[is_close]
-            stack_ptr[is_close] = (stack_ptr_ - 1)[is_close]
+            reduce_stack[idx, reduce_stack_ptr - 2] = parent
+            stack[is_reduce] = reduce_stack
+            stack_ptr[is_reduce] = reduce_stack_ptr - 1
 
         return stack, stack_ptr
+if __name__ == "__main__":
+    # from recursive import Recursive, RNNOp
+    # import torch
 
+    tree = Recursive(RNNOp, 5, 4, padding_idx=4)
+    batch_result = tree.forward(torch.tensor([
+        [2, 4, 4, 4, 4, 4, 4, 4, 4, 4],  # 2
+        [0, 0, 3, 3, 1, 0, 2, 2, 1, 1],  # ( ( 3 3 ) ( 2 2 ) )
+        [0, 2, 0, 3, 0, 2, 3, 1, 1, 1]  # ( 2 ( 3 ( 2 3 ) ) )
+    ], dtype=torch.long).t())
+
+    # First item (singleton)
+    assert (torch.allclose(
+        batch_result[0],
+        tree.embedding(torch.Tensor([[2]]).long().t())[0]))
+
+    # Second item (balanced tree)
+    embs = tree.embedding(torch.Tensor(([3, 3, 2, 2],)).long().t())
+    result = tree.op(tree.op(embs[0], embs[1]),
+                     tree.op(embs[2], embs[3]))
+    assert (torch.allclose(batch_result[1], result))
+
+    # Third item (right linear tree)
+    embs = tree.embedding(torch.Tensor([[2, 3, 2, 3]]).long().t())
+    result = tree.op(embs[0],
+                     tree.op(embs[1],
+                             tree.op(embs[2], embs[3])))
+    assert (torch.allclose(batch_result[2], result))
+
+    batch_result.sum().backward()

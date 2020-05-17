@@ -377,3 +377,5 @@ if __name__ == "__main__":
         ),
         ', '.join(str('{:0.2f}'.format(v)) for v in test_loss)
     )
+
+
